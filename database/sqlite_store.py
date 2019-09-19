@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import math
+from typing import Tuple
 from contextlib import contextmanager
 
 
@@ -33,6 +34,12 @@ class SqliteStore(object):
                             (timestamp, event_type, event_host)
                             ):
             pass
+
+    def get_events(self, from_timestamp: int, to_timestamp: int) -> Tuple[int, str, str]:
+        with sqlite_execute(self.db_path,
+                            'SELECT timestamp, event_type, event_host FROM events WHERE timestamp BETWEEN ? AND ?',
+                            (from_timestamp, to_timestamp)) as cursor:
+            return cursor.fetchall()
 
     def _migrate_schema(self):
         schema_version = self._get_schema_version()
