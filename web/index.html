@@ -45,7 +45,7 @@
       startOfDay = startOfDay.setHours(0, 0, 0, 0);
       var endOfDay = new Date();
       endOfDay = endOfDay.setHours(23, 59, 59, 999);
-      fetch(`/api/stats?from=${startOfDay}&to={endOfDay}`)
+      fetch(`/api/stats?from=${startOfDay}&to=${endOfDay}`)
         .then(response => response.json())
         .then(data => {
           var events = Object.keys(data).map(eventHost => {
