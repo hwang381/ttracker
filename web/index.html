@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <title>ttracker</title>
+  </head>
+  <body>
+    <div class="container">
+        <h3 style="margin-top: 18px; margin-bottom: 18px">Today</h3>
+        <ul id="today-ul"></ul>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <script type="text/javascript">
+      function leftPad(num) {
+        return (num < 10) ? '0' + num : num
+      }
+
+      function printMilliseconds(duration) {
+        var seconds = parseInt((duration / 1000) % 60);
+        var minutes = parseInt((duration / 1000 / 60) % 60);
+        var hours = parseInt((duration / 1000 / 60 / 60) % 24);
+
+        if (hours !== 0) {
+          return leftPad(hours) + ":" + leftPad(minutes) + ":" + leftPad(seconds)
+        } else if (minutes !== 0) {
+          return leftPad(minutes) + ":" + leftPad(seconds)
+        } else {
+          return seconds + "s"
+        }
+      }
+
+      var startOfDay = new Date();
+      startOfDay = startOfDay.setHours(0, 0, 0, 0);
+      var endOfDay = new Date();
+      endOfDay = endOfDay.setHours(23, 59, 59, 999);
+      fetch(`/api/stats?from=${startOfDay}&to={endOfDay}`)
+        .then(response => response.json())
+        .then(data => {
+          var events = Object.keys(data).map(eventHost => {
+            return {
+              eventHost: eventHost,
+              duration: data[eventHost]
+            }
+          });
+          events.sort((e1, e2) => {
+            return e2.duration - e1.duration
+          })
+          events = events.map(({eventHost, duration}) => {
+            var liNode = document.createElement('li');
+            var textNode = document.createTextNode(`${eventHost}: ${printMilliseconds(duration)}`);
+            liNode.appendChild(textNode);
+            document.getElementById('today-ul').appendChild(liNode);
+          })
+        })
+        .catch(error => {
+          console.error(error);
+        })
+    </script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 import multiprocessing
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from desktop.x11 import X11DesktopAppChangeSource
 from database.sqlite_store import SqliteStore
@@ -25,12 +25,17 @@ desktop_app_change_p.start()
 flask_app = Flask(__name__)
 
 
-@flask_app.route('/ping', methods=['GET'])
+@flask_app.route('/')
+def index():
+    return send_from_directory('web', 'index.html')
+
+
+@flask_app.route('/api/ping', methods=['GET'])
 def ping():
     return 'pong'
 
 
-@flask_app.route('/event/browser_tab_focus', methods=['POST'])
+@flask_app.route('/api/event/browser_tab_focus', methods=['POST'])
 def append_browser_tab_focus_event():
     url = request.data
     print(f"Browser tab focused to url {url}")
@@ -41,7 +46,7 @@ def append_browser_tab_focus_event():
     return '/event/browser_tab_focus'
 
 
-@flask_app.route('/stats', methods=['GET'])
+@flask_app.route('/api/stats', methods=['GET'])
 def get_stats():
     from_timestamp = request.args.get('from')
     to_timestamp = request.args.get('to')
