@@ -72,7 +72,7 @@ def ping():
 
 @flask_app.route('/api/event/browser_tab_focus', methods=['POST'])
 def append_browser_tab_focus_event():
-    url = request.data
+    url = request.data.decode('utf-8')
     print(f"Browser tab focused to url {url}")
     parse_result = urlparse(url)
     netloc = parse_result.netloc
