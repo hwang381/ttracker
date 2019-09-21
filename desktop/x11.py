@@ -41,7 +41,7 @@ if is_x11():
                     pid = win_obj.get_full_property(self.NET_WM_PID, Xlib.X.AnyPropertyType).value[0]
                     return pid
 
-        def _process_active_win(self):
+        def _process_active_win_pid(self):
             active_win_pid = self._get_active_win_pid()
             if active_win_pid != self.last_seen_pid:
                 process = psutil.Process(active_win_pid)
@@ -52,7 +52,7 @@ if is_x11():
             if not self.callback:
                 raise RuntimeError("callback is not set!")
 
-            self._process_active_win()
+            self._process_active_win_pid()
 
             print('Starting to listen X11 desktop app change')
             while True:  # next_event() sleeps until we get an event
@@ -60,4 +60,4 @@ if is_x11():
                 if event.type != Xlib.X.PropertyNotify:
                     continue
                 if event.atom == self.NET_ACTIVE_WINDOW:
-                    self._process_active_win()
+                    self._process_active_win_pid()

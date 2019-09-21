@@ -1,7 +1,7 @@
 # ttracker
 An application-triggered time-tracker for all major desktop OS'es
 
-## Run from source
+## Run and develop from source
 
 ### Prerequisites
 * `Python 3`
@@ -12,6 +12,12 @@ An application-triggered time-tracker for all major desktop OS'es
 
 ```bash
 pip3 install -r requirements.txt -r requirements_x11.txt
+python3 server.py
+```
+
+### macOS
+```bash
+pip3 install -r requirements.txt -r requirements_cocoa.txt
 python3 server.py
 ```
 

@@ -4,7 +4,6 @@ from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from database.sqlite_store import SqliteStore
 from desktop.tell_wm import is_x11, is_cocoa
-from desktop.abstract_app_change_source import AbstractDesktopAppChangeSource
 
 
 store = SqliteStore("db.sqlite")
@@ -55,7 +54,7 @@ def append_browser_tab_focus_event():
     netloc = parse_result.netloc
     if netloc:
         store.append_event('browser_tab_focus', netloc)
-    return '/event/browser_tab_focus'
+    return 'browser_tab_focus event processed'
 
 
 @flask_app.route('/api/stats', methods=['GET'])
