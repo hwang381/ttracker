@@ -3,7 +3,7 @@ from .tell_wm import is_x11
 if is_x11():
     from contextlib import contextmanager
     from typing import Callable, Optional
-    from .abstract_app_change_source import AbstractDesktopAppChangeSource
+    from .abstract_desktop_app_monitor import AbstractDesktopAppMonitor
     import Xlib
     import Xlib.display
     import psutil
@@ -21,7 +21,7 @@ if is_x11():
         yield window_obj
 
 
-    class X11DesktopAppChangeSource(AbstractDesktopAppChangeSource):
+    class X11DesktopAppMonitor(AbstractDesktopAppMonitor):
         def __init__(self, ):
             self.display = Xlib.display.Display()
             self.NET_ACTIVE_WINDOW = self.display.intern_atom('_NET_ACTIVE_WINDOW')
@@ -54,7 +54,7 @@ if is_x11():
 
             self._process_active_win_pid()
 
-            print('Starting to listen X11 desktop app change')
+            print('Starting to monitor X11 desktop app')
             while True:  # next_event() sleeps until we get an event
                 event = self.display.next_event()
                 if event.type != Xlib.X.PropertyNotify:

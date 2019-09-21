@@ -1,38 +1,59 @@
 import multiprocessing
-from typing import Optional
+import time
 from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from database.sqlite_store import SqliteStore
 from desktop.tell_wm import is_x11, is_cocoa
 
-
+###
+# Initialize storage
+##
 store = SqliteStore("db.sqlite")
 
 
-def desktop_app_change_callback(program_name: str):
+###
+# Setup heartbeat
+##
+def start_heartbeat():
+    store.append_event_with_timestamp(store.get_heartbeat(), 'exit', '')
+    while True:
+        store.heartbeat()
+        time.sleep(5)
+
+
+heartbeat_p = multiprocessing.Process(target=start_heartbeat)
+heartbeat_p.start()
+
+
+###
+# Setup desktop app monitoring
+##
+def desktop_app_monitoring_callback(program_name: str):
     print(f"Desktop app focused to program {program_name}")
     store.append_event("desktop_app_focus", program_name)
 
 
-def start_desktop_app_change_source():
-    desktop_app_change_source_class = None
+def start_desktop_app_monitoring():
     if is_x11():
-        from desktop.x11 import X11DesktopAppChangeSource
-        desktop_app_change_source_class = X11DesktopAppChangeSource
+        from desktop.x11 import X11DesktopAppMonitor
+        desktop_app_monitor_class = X11DesktopAppMonitor
     elif is_cocoa():
-        from desktop.cocoa import CocoaDesktopAppChangeSource
-        desktop_app_change_source_class = CocoaDesktopAppChangeSource
+        from desktop.cocoa import CocoaDesktopAppMonitor
+        desktop_app_monitor_class = CocoaDesktopAppMonitor
     else:
         raise RuntimeError("Unsupported window manager")
-    desktop_app_change_source = desktop_app_change_source_class()
-    desktop_app_change_source.set_callback(desktop_app_change_callback)
-    desktop_app_change_source.start()
+    desktop_app_monitor = desktop_app_monitor_class()
+    desktop_app_monitor.set_callback(desktop_app_monitoring_callback)
+    desktop_app_monitor.start()
 
 
-desktop_app_change_p = multiprocessing.Process(target=start_desktop_app_change_source)
-desktop_app_change_p.start()
+desktop_app_monitor_p = multiprocessing.Process(target=start_desktop_app_monitoring)
+desktop_app_monitor_p.start()
 
 
+###
+# Start webapp
+##
 flask_app = Flask(__name__)
 
 
@@ -65,12 +86,21 @@ def get_stats():
         return 'from or to missing', 400
     if from_timestamp > to_timestamp:
         return 'from is bigger than to', 400
+    from_timestamp = int(from_timestamp)
+    to_timestamp = int(to_timestamp)
     events = store.get_events(from_timestamp, to_timestamp)
     stats = {}
+
     for i in range(len(events) - 1):
-        event_timestamp, _, event_host = events[i]
-        next_event_timestamp, _, _ = events[i + 1]
-        stats[event_host] = stats.get(event_host, 0) + (next_event_timestamp - event_timestamp)
+        event_timestamp, event_type, event_host = events[i]
+        if event_host != 'exit':
+            next_event_timestamp, _, _ = events[i + 1]
+            stats[event_host] = stats.get(event_host, 0) + (next_event_timestamp - event_timestamp)
+
+    last_event_timestamp, last_event_type, last_event_host = events[-1]
+    if last_event_type != 'exit':
+        stats[last_event_host] = stats.get(last_event_host, 0) + (to_timestamp - last_event_timestamp)
+
     return jsonify(stats)
 
 

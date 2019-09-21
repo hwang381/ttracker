@@ -1,8 +1,7 @@
 import sqlite3
-import time
-import math
 from typing import Tuple
 from contextlib import contextmanager
+from .time import now_milliseconds
 
 
 @contextmanager
@@ -23,12 +22,15 @@ class SqliteStore(object):
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._schema_migrations = {
-            0: self._migrate_0_to_1
+            0: self._migrate_0_to_1,
+            1: self._migrate_1_to_2,
         }
         self._migrate_schema()
     
     def append_event(self, event_type: str, event_host: str):
-        timestamp = math.floor(time.time() * 1000)
+        self.append_event_with_timestamp(now_milliseconds(), event_type, event_host)
+
+    def append_event_with_timestamp(self, timestamp: int, event_type: str, event_host: str):
         with sqlite_execute(self.db_path,
                             "INSERT INTO events (timestamp, event_type, event_host) VALUES(?, ?, ?)",
                             (timestamp, event_type, event_host)
@@ -40,6 +42,14 @@ class SqliteStore(object):
                             'SELECT timestamp, event_type, event_host FROM events WHERE timestamp BETWEEN ? AND ?',
                             (from_timestamp, to_timestamp)) as cursor:
             return cursor.fetchall()
+
+    def heartbeat(self):
+        with sqlite_execute(self.db_path, 'UPDATE heartbeat SET timestamp = ?', (now_milliseconds(),)):
+            pass
+
+    def get_heartbeat(self):
+        with sqlite_execute(self.db_path, 'SELECT timestamp FROM heartbeat') as cursor:
+            return cursor.fetchone()[0]
 
     def _migrate_schema(self):
         schema_version = self._get_schema_version()
@@ -63,6 +73,12 @@ class SqliteStore(object):
         ]:
             with sqlite_execute(self.db_path, statement):
                 pass
+
+    def _migrate_1_to_2(self):
+        with sqlite_execute(self.db_path, 'CREATE TABLE heartbeat (timestamp INTEGER)'):
+            pass
+        with sqlite_execute(self.db_path, 'INSERT INTO heartbeat (timestamp) VALUES(?)', (now_milliseconds(),)):
+            pass
 
     def _get_schema_version(self) -> int:
         if not self._if_schema_version_exists():

@@ -5,10 +5,10 @@ from .tell_wm import is_cocoa
 if is_cocoa():
     import time
     import psutil
-    from .abstract_app_change_source import AbstractDesktopAppChangeSource
+    from .abstract_desktop_app_monitor import AbstractDesktopAppMonitor
     from AppKit import NSWorkspace
 
-    class CocoaDesktopAppChangeSource(AbstractDesktopAppChangeSource):
+    class CocoaDesktopAppMonitor(AbstractDesktopAppMonitor):
         def __init__(self):
             self.last_seen_pid = None
             self.callback = None
@@ -32,7 +32,7 @@ if is_cocoa():
 
             self._process_active_win_pid()
 
-            print('Starting to listen Cocoa desktop app change')
+            print('Starting to monitor Cocoa desktop apps')
             while True:
                 self._process_active_win_pid()
-                time.sleep(5)
+                time.sleep(1)

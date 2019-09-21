@@ -2,7 +2,7 @@ import abc
 from typing import Callable
 
 
-class AbstractDesktopAppChangeSource(abc.ABC):
+class AbstractDesktopAppMonitor(abc.ABC):
     @abc.abstractmethod
     def set_callback(self, callback: Callable[[str], None]):
         pass
