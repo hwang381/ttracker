@@ -1,5 +1,6 @@
 import multiprocessing
 import time
+import logging
 from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from database.sqlite_store import SqliteStore
@@ -58,6 +59,9 @@ desktop_app_monitor_p.start()
 # Start webapp
 ##
 flask_app = Flask(__name__)
+# Less verbose logging from Flask
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.setLevel(logging.ERROR)
 
 
 @flask_app.route('/')
