@@ -1,8 +1,10 @@
 import multiprocessing
+from typing import Optional
 from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
-from desktop.x11 import X11DesktopAppChangeSource
 from database.sqlite_store import SqliteStore
+from desktop.tell_wm import is_x11, is_cocoa
+from desktop.abstract_app_change_source import AbstractDesktopAppChangeSource
 
 
 store = SqliteStore("db.sqlite")
@@ -13,12 +15,22 @@ def desktop_app_change_callback(program_name: str):
     store.append_event("desktop_app_focus", program_name)
 
 
-def start_desktop_app_change():
-    desktop_app_change_source = X11DesktopAppChangeSource(desktop_app_change_callback)
+def start_desktop_app_change_source():
+    desktop_app_change_source_class = None
+    if is_x11():
+        from desktop.x11 import X11DesktopAppChangeSource
+        desktop_app_change_source_class = X11DesktopAppChangeSource
+    elif is_cocoa():
+        from desktop.cocoa import CocoaDesktopAppChangeSource
+        desktop_app_change_source_class = CocoaDesktopAppChangeSource
+    else:
+        raise RuntimeError("Unsupported window manager")
+    desktop_app_change_source = desktop_app_change_source_class()
+    desktop_app_change_source.set_callback(desktop_app_change_callback)
     desktop_app_change_source.start()
 
 
-desktop_app_change_p = multiprocessing.Process(target=start_desktop_app_change)
+desktop_app_change_p = multiprocessing.Process(target=start_desktop_app_change_source)
 desktop_app_change_p.start()
 
 
