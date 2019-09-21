@@ -47,7 +47,7 @@ class SqliteStore(object):
         with sqlite_execute(self.db_path, 'UPDATE heartbeat SET timestamp = ?', (now_milliseconds(),)):
             pass
 
-    def get_heartbeat(self):
+    def get_heartbeat(self) -> int:
         with sqlite_execute(self.db_path, 'SELECT timestamp FROM heartbeat') as cursor:
             return cursor.fetchone()[0]
 
@@ -62,6 +62,7 @@ class SqliteStore(object):
             if v not in self._schema_migrations:
                 raise RuntimeError(f'Schema migration for version {v} is undefined')
         for v in migrate_versions:
+            print(f"Executing schema migration for version {v}")
             self._schema_migrations[v]()
         self._update_schema_version(latest_schema_version)
 
@@ -77,7 +78,7 @@ class SqliteStore(object):
     def _migrate_1_to_2(self):
         with sqlite_execute(self.db_path, 'CREATE TABLE heartbeat (timestamp INTEGER)'):
             pass
-        with sqlite_execute(self.db_path, 'INSERT INTO heartbeat (timestamp) VALUES(?)', (now_milliseconds(),)):
+        with sqlite_execute(self.db_path, 'INSERT INTO heartbeat (timestamp) VALUES(0)'):
             pass
 
     def _get_schema_version(self) -> int:

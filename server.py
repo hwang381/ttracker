@@ -15,7 +15,9 @@ store = SqliteStore("db.sqlite")
 # Setup heartbeat
 ##
 def start_heartbeat():
-    store.append_event_with_timestamp(store.get_heartbeat(), 'exit', '')
+    last_heartbeat = store.get_heartbeat()
+    if last_heartbeat != 0:
+        store.append_event_with_timestamp(last_heartbeat, 'exit', '')
     while True:
         store.heartbeat()
         time.sleep(5)
