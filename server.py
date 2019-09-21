@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from database.sqlite_store import SqliteStore
 from desktop.tell_wm import is_x11, is_cocoa
+from database.time import now_milliseconds
 
 ###
 # Initialize storage
@@ -89,13 +90,13 @@ def get_stats():
     if from_timestamp > to_timestamp:
         return 'from is bigger than to', 400
     from_timestamp = int(from_timestamp)
-    to_timestamp = int(to_timestamp)
+    to_timestamp = min(int(to_timestamp), now_milliseconds())
     events = store.get_events(from_timestamp, to_timestamp)
     stats = {}
 
     for i in range(len(events) - 1):
         event_timestamp, event_type, event_host = events[i]
-        if event_host != 'exit':
+        if event_type != 'exit':
             next_event_timestamp, _, _ = events[i + 1]
             stats[event_host] = stats.get(event_host, 0) + (next_event_timestamp - event_timestamp)
 
