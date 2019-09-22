@@ -1,6 +1,7 @@
 import sqlite3
+from .ping import Ping
+from typing import List
 from contextlib import contextmanager
-from .time_entry import TimeEntry
 
 
 @contextmanager
@@ -18,11 +19,22 @@ def sqlite_execute(conn, q, params=()):
 
 class SqliteStore(object):
     def __init__(self, db_path: str):
+        self.pings = []  # type: List[Ping]
+        self.PING_FLUSH_THRESHOLD = 5
         self.db_path = db_path
         self._schema_migrations = {
             0: self._migrate_0_to_1,
         }
         self._migrate_schema()
+
+    def ping(self, ping: Ping):
+        self.pings.append(ping)
+        if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
+            self.flush_pings()
+
+    def flush_pings(self):
+        # TODO
+        self.pings = []
 
     def _new_conn(self):
         return sqlite3.connect(self.db_path)
@@ -46,7 +58,7 @@ class SqliteStore(object):
         for statement in [
             'CREATE TABLE schema_version (v INTEGER)',
             'INSERT INTO schema_version (v) VALUES(1)',
-            'CREATE TABLE time_entry (from_timestamp INTEGER, type TEXT, origin TEXT)'
+            'CREATE TABLE time_entry (from_timestamp INTEGER, type TEXT, origin TEXT, to_timestamp INTEGER)'
         ]:
             with sqlite_execute(self._new_conn(), statement):
                 pass

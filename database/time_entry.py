@@ -1,5 +1,6 @@
 class TimeEntry(object):
-    def __init__(self, from_timestamp: int, e_type: str, origin: str):
+    def __init__(self, from_timestamp: int, entry_type: str, origin: str, to_timestamp: int):
         self.from_timestamp = from_timestamp
-        self.e_type = e_type
+        self.to_timestamp = to_timestamp
+        self.e_type = entry_type
         self.origin = origin

@@ -1,8 +1,9 @@
-from contextlib import contextmanager
-from typing import Callable, Optional
-from .abstract_desktop_monitor import AbstractDesktopMonitor
 import Xlib
 import Xlib.display
+from contextlib import contextmanager
+from typing import Optional
+from .abstract_desktop_monitor import AbstractDesktopMonitor
+from database.sqlite_store import SqliteStore
 
 
 @contextmanager
@@ -18,16 +19,16 @@ def window_obj(display, win_id):
 
 
 class LinuxDesktopMonitor(AbstractDesktopMonitor):
+    def __init__(self, store: SqliteStore):
+        super(LinuxDesktopMonitor, self).__init__(store)
+        self.display = Xlib.display.Display()
+        self.NET_ACTIVE_WINDOW = self.display.intern_atom('_NET_ACTIVE_WINDOW')
+        self.NET_WM_PID = self.display.intern_atom('_NET_WM_PID')
+        self.root_screen = self.display.screen().root
+
     def get_active_pid(self) -> Optional[int]:
         active_win_id = self.root_screen.get_full_property(self.NET_ACTIVE_WINDOW, Xlib.X.AnyPropertyType).value[0]
         with window_obj(self.display, active_win_id) as win_obj:
             if win_obj:
                 pid = win_obj.get_full_property(self.NET_WM_PID, Xlib.X.AnyPropertyType).value[0]
                 return pid
-
-    def __init__(self, callback: Callable[[str], None]):
-        super(LinuxDesktopMonitor, self).__init__(callback)
-        self.display = Xlib.display.Display()
-        self.NET_ACTIVE_WINDOW = self.display.intern_atom('_NET_ACTIVE_WINDOW')
-        self.NET_WM_PID = self.display.intern_atom('_NET_WM_PID')
-        self.root_screen = self.display.screen().root

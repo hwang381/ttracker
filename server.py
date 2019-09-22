@@ -12,12 +12,8 @@ store = SqliteStore("db.sqlite")
 
 
 ###
-# Setup desktop app monitoring
+# Setup desktop monitoring
 ##
-def desktop_monitor_callback(program_name: str):
-    print(f"Desktop app focused to program {program_name}")
-
-
 def start_desktop_monitor():
     if is_linux():
         from desktop.linux import LinuxDesktopMonitor
@@ -27,7 +23,7 @@ def start_desktop_monitor():
         desktop_monitor_constructor = MacOSDesktopMonitor
     else:
         raise RuntimeError("Unsupported OS")
-    desktop_monitor = desktop_monitor_constructor(desktop_monitor_callback)
+    desktop_monitor = desktop_monitor_constructor(store)
     desktop_monitor.start()
 
 
