@@ -31,6 +31,14 @@ class SqliteStore(object):
         }
         self._migrate_schema()
 
+        last_time_entry = self._get_last_time_entry()
+        if not last_time_entry:
+            self.gen = 0
+        elif last_time_entry.gen == 0:
+            self.gen = 1
+        else:
+            self.gen = 0
+
     def ping(self, ping: Ping):
         with self.ping_lock:
             self.pings.append(ping)
@@ -49,7 +57,8 @@ class SqliteStore(object):
                     from_timestamp=ping.timestamp,
                     entry_type=ping.ping_type,
                     origin=ping.origin,
-                    to_timestamp=self.pings[i + 1].timestamp if i + 1 != len(self.pings) else now_milliseconds()
+                    to_timestamp=self.pings[i + 1].timestamp if i + 1 != len(self.pings) else now_milliseconds(),
+                    gen=self.gen
                 ))
             else:
                 time_entries[-1].to_timestamp = ping.timestamp
@@ -60,7 +69,7 @@ class SqliteStore(object):
             time_entry = time_entries[i]
             if i == 0:
                 last_time_entry = self._get_last_time_entry()
-                if last_time_entry:
+                if last_time_entry and last_time_entry.gen == time_entry.gen:
                     if last_time_entry.entry_type == time_entry.entry_type \
                             and last_time_entry.origin == time_entry.origin:
                         print("Merging into last time entry")
@@ -77,7 +86,7 @@ class SqliteStore(object):
     def _get_last_time_entry(self) -> Optional[TimeEntry]:
         with sqlite_execute(
                 self._new_conn(),
-                'SELECT from_timestamp, type, origin, to_timestamp FROM time_entry ORDER BY ROWID DESC LIMIT 1'
+                'SELECT from_timestamp, type, origin, to_timestamp, gen FROM time_entry ORDER BY ROWID DESC LIMIT 1'
         ) as cursor:
             result = cursor.fetchone()
             if not result:
@@ -87,6 +96,7 @@ class SqliteStore(object):
                 entry_type=result[1],
                 origin=result[2],
                 to_timestamp=result[3],
+                gen=result[4]
             )
 
     def _update_last_time_entry(self, to_timestamp: int):
@@ -100,8 +110,9 @@ class SqliteStore(object):
     def _append_time_entry(self, time_entry: TimeEntry):
         with sqlite_execute(
                 self._new_conn(),
-                'INSERT INTO time_entry (from_timestamp, type, origin, to_timestamp) VALUES(?, ?, ?, ?)',
-                (time_entry.from_timestamp, time_entry.entry_type, time_entry.origin, time_entry.to_timestamp)
+                'INSERT INTO time_entry (from_timestamp, type, origin, to_timestamp, gen) VALUES(?, ?, ?, ?, ?)',
+                (time_entry.from_timestamp, time_entry.entry_type, time_entry.origin, time_entry.to_timestamp,
+                 time_entry.gen)
         ):
             pass
 
@@ -127,7 +138,8 @@ class SqliteStore(object):
         for statement in [
             'CREATE TABLE schema_version (v INTEGER)',
             'INSERT INTO schema_version (v) VALUES(1)',
-            'CREATE TABLE time_entry (from_timestamp INTEGER, type TEXT, origin TEXT, to_timestamp INTEGER)'
+            'CREATE TABLE time_entry '
+            '(from_timestamp INTEGER, type TEXT, origin TEXT, to_timestamp INTEGER, gen INTEGER)'
         ]:
             with sqlite_execute(self._new_conn(), statement):
                 pass
