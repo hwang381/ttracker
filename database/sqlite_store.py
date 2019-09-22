@@ -45,6 +45,24 @@ class SqliteStore(object):
             if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
                 self._flush_pings()
 
+    def get_time_entries(self, from_timestamp: int, to_timestamp: int) -> List[TimeEntry]:
+        with sqlite_execute(
+                self._new_conn(),
+                'SELECT from_timestamp, type, origin, to_timestamp, gen from time_entry '
+                'WHERE from_timestamp >= ? AND from_timestamp < ?',
+                (from_timestamp, to_timestamp)
+        ) as cursor:
+            results = []
+            for result in cursor.fetchall():
+                results.append(TimeEntry(
+                    from_timestamp=result[0],
+                    entry_type=result[1],
+                    origin=result[2],
+                    to_timestamp=result[3],
+                    gen=result[4]
+                ))
+            return results
+
     def _flush_pings(self):
         if not self.pings:
             return

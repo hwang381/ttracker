@@ -31,9 +31,9 @@
       }
 
       function printMilliseconds(duration) {
-        var seconds = parseInt((duration / 1000) % 60);
-        var minutes = parseInt((duration / 1000 / 60) % 60);
-        var hours = parseInt((duration / 1000 / 60 / 60) % 24);
+        const seconds = Math.floor(duration / 1000) % 60;
+        const minutes = Math.floor(duration / 1000 / 60) % 60;
+        const hours = Math.floor(duration / 1000 / 60 / 60) % 24;
 
         if (hours !== 0) {
           return leftPad(hours) + ":" + leftPad(minutes) + ":" + leftPad(seconds)
@@ -44,28 +44,28 @@
         }
       }
 
-      var startOfDay = new Date();
+      let startOfDay = new Date();
       startOfDay = startOfDay.setHours(0, 0, 0, 0);
-      var endOfDay = new Date();
+      let endOfDay = new Date();
       endOfDay = endOfDay.setHours(23, 59, 59, 999);
       fetch(`/api/stats?from=${startOfDay}&to=${endOfDay}`)
         .then(response => response.json())
         .then(data => {
-          var events = Object.keys(data).map(eventHost => {
+          let events = Object.keys(data).map(origin => {
             return {
-              eventHost: eventHost,
-              duration: data[eventHost]
+              origin: origin,
+              duration: data[origin]
             }
           });
           events.sort((e1, e2) => {
             return e2.duration - e1.duration
-          })
-          events = events.map(({eventHost, duration}) => {
-            var liNode = document.createElement('li');
-            var textNode = document.createTextNode(`${eventHost}: ${printMilliseconds(duration)}`);
+          });
+          events.forEach(({origin, duration}) => {
+            const liNode = document.createElement('li');
+            const textNode = document.createTextNode(`${origin}: ${printMilliseconds(duration)}`);
             liNode.appendChild(textNode);
             document.getElementById('today-ul').appendChild(liNode);
-          })
+          });
           document.getElementById('loading').style.display = 'none'
         })
         .catch(error => {

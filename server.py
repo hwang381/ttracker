@@ -1,9 +1,10 @@
 import multiprocessing
 import logging
+from typing import Dict, Tuple
 from flask import Flask, request, jsonify, send_from_directory
-from urllib.parse import urlparse
 from database.sqlite_store import SqliteStore
 from desktop.tell_os import is_linux, is_macos
+from utils.time import now_milliseconds
 
 ###
 # Initialize storage
@@ -43,6 +44,34 @@ werkzeug_logger.setLevel(logging.ERROR)
 @flask_app.route('/')
 def index():
     return send_from_directory('web', 'index.html')
+
+
+@flask_app.route('/api/stats')
+def api_stats():
+    from_timestamp = request.args.get('from')
+    to_timestamp = request.args.get('to')
+    if not from_timestamp or not to_timestamp:
+        return 'from or to missing', 400
+    if from_timestamp > to_timestamp:
+        return 'from is bigger than to', 400
+    from_timestamp = int(from_timestamp)
+    to_timestamp = min(int(to_timestamp), now_milliseconds())
+
+    time_entries = store.get_time_entries(from_timestamp, to_timestamp)
+    stats = {}  # type: Dict[str, int]
+    for i in range(len(time_entries) - 1):
+        time_entry = time_entries[i]
+        to_timestamp = time_entry.to_timestamp if time_entry.to_timestamp != 0 else time_entries[i + 1].from_timestamp
+        # todo: account for event_type as well
+        stats[time_entry.origin] = stats.get(time_entry.origin, 0) + (to_timestamp - time_entry.from_timestamp)
+
+    last_time_entry = time_entries[-1]
+    last_to_timestamp = last_time_entry.to_timestamp if last_time_entry.to_timestamp != 0 else to_timestamp
+    # todo: account for event_type as well
+    stats[last_time_entry.origin] = stats.get(last_time_entry.origin, 0) \
+                                    + (last_to_timestamp - last_time_entry.from_timestamp)
+
+    return jsonify(stats)
 
 
 flask_app.run(host='127.0.0.1', port=16789)
