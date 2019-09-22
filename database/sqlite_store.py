@@ -2,7 +2,7 @@ import sqlite3
 from multiprocessing import Lock
 from .ping import Ping
 from .time_entry import TimeEntry
-from typing import List
+from typing import List, Optional, Tuple
 from contextlib import contextmanager
 from utils.time import now_milliseconds
 
@@ -53,12 +53,57 @@ class SqliteStore(object):
                 ))
             else:
                 time_entries[-1].to_timestamp = ping.timestamp
+
         for i in range(len(time_entries)):
             if i != len(time_entries) - 1:
-                time_entries[i].to_timestamp = -1
-            print(f"Flushing time entry {time_entries[i]}")
+                time_entries[i].to_timestamp = 0
+            time_entry = time_entries[i]
+            if i == 0:
+                last_time_entry = self._get_last_time_entry()
+                if last_time_entry:
+                    if last_time_entry.entry_type == time_entry.entry_type \
+                            and last_time_entry.origin == time_entry.origin:
+                        print("Merging into last time entry")
+                        self._update_last_time_entry(time_entry.to_timestamp)
+                        continue
+                    else:
+                        print("Updating last time entry")
+                        self._update_last_time_entry(0)
+            print(f"Flushing time entry {time_entry}")
+            self._append_time_entry(time_entry)
 
         self.pings = []  # type: List[Ping]
+
+    def _get_last_time_entry(self) -> Optional[TimeEntry]:
+        with sqlite_execute(
+                self._new_conn(),
+                'SELECT from_timestamp, type, origin, to_timestamp FROM time_entry ORDER BY ROWID DESC LIMIT 1'
+        ) as cursor:
+            result = cursor.fetchone()
+            if not result:
+                return None
+            return TimeEntry(
+                from_timestamp=result[0],
+                entry_type=result[1],
+                origin=result[2],
+                to_timestamp=result[3],
+            )
+
+    def _update_last_time_entry(self, to_timestamp: int):
+        with sqlite_execute(
+                self._new_conn(),
+                'UPDATE time_entry SET to_timestamp = ? WHERE ROWID = (SELECT MAX(ROWID) FROM time_entry)',
+                (to_timestamp,)
+        ):
+            pass
+
+    def _append_time_entry(self, time_entry: TimeEntry):
+        with sqlite_execute(
+                self._new_conn(),
+                'INSERT INTO time_entry (from_timestamp, type, origin, to_timestamp) VALUES(?, ?, ?, ?)',
+                (time_entry.from_timestamp, time_entry.entry_type, time_entry.origin, time_entry.to_timestamp)
+        ):
+            pass
 
     def _new_conn(self):
         return sqlite3.connect(self.db_path)
