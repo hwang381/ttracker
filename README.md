@@ -9,16 +9,8 @@ An application-triggered time-tracker for all major desktop OS'es
 
 (The following assumes `Python 3` is installed as `python3` and `pip` as `pip3`. Change commands to `python` and `pip` if you see appropriate)
 
-### Ubuntu (or any OS with X11, hopefully)
-
 ```bash
-pip3 install -r requirements.txt -r requirements_x11.txt
-python3 server.py
-```
-
-### macOS
-```bash
-pip3 install -r requirements.txt -r requirements_cocoa.txt
+pip3 install -r requirements.txt
 python3 server.py
 ```
 

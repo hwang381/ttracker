@@ -4,7 +4,7 @@ import logging
 from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from database.sqlite_store import SqliteStore
-from desktop.tell_wm import is_x11, is_cocoa
+from desktop.tell_os import is_linux, is_macos
 from database.time import now_milliseconds
 
 ###
@@ -38,15 +38,15 @@ def desktop_app_monitoring_callback(program_name: str):
 
 
 def start_desktop_app_monitoring():
-    if is_x11():
-        from desktop.x11 import X11DesktopAppMonitor
-        desktop_app_monitor_class = X11DesktopAppMonitor
-    elif is_cocoa():
-        from desktop.cocoa import CocoaDesktopAppMonitor
-        desktop_app_monitor_class = CocoaDesktopAppMonitor
+    if is_linux():
+        from desktop.linux import LinuxDesktopAppMonitor
+        desktop_app_monitor_constructor = LinuxDesktopAppMonitor
+    elif is_macos():
+        from desktop.macos import MacOSDesktopAppMonitor
+        desktop_app_monitor_constructor = MacOSDesktopAppMonitor
     else:
         raise RuntimeError("Unsupported window manager")
-    desktop_app_monitor = desktop_app_monitor_class()
+    desktop_app_monitor = desktop_app_monitor_constructor()
     desktop_app_monitor.set_callback(desktop_app_monitoring_callback)
     desktop_app_monitor.start()
 
