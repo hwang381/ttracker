@@ -14,26 +14,25 @@ store = SqliteStore("db.sqlite")
 ###
 # Setup desktop app monitoring
 ##
-def desktop_app_monitoring_callback(program_name: str):
+def desktop_monitor_callback(program_name: str):
     print(f"Desktop app focused to program {program_name}")
 
 
-def start_desktop_app_monitoring():
+def start_desktop_monitor():
     if is_linux():
-        from desktop.linux import LinuxDesktopAppMonitor
-        desktop_app_monitor_constructor = LinuxDesktopAppMonitor
+        from desktop.linux import LinuxDesktopMonitor
+        desktop_monitor_constructor = LinuxDesktopMonitor
     elif is_macos():
-        from desktop.macos import MacOSDesktopAppMonitor
-        desktop_app_monitor_constructor = MacOSDesktopAppMonitor
+        from desktop.macos import MacOSDesktopMonitor
+        desktop_monitor_constructor = MacOSDesktopMonitor
     else:
-        raise RuntimeError("Unsupported window manager")
-    desktop_app_monitor = desktop_app_monitor_constructor()
-    desktop_app_monitor.set_callback(desktop_app_monitoring_callback)
-    desktop_app_monitor.start()
+        raise RuntimeError("Unsupported OS")
+    desktop_monitor = desktop_monitor_constructor(desktop_monitor_callback)
+    desktop_monitor.start()
 
 
-desktop_app_monitor_p = multiprocessing.Process(target=start_desktop_app_monitoring)
-desktop_app_monitor_p.start()
+desktop_monitor_p = multiprocessing.Process(target=start_desktop_monitor)
+desktop_monitor_p.start()
 
 
 ###
