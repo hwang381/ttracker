@@ -1,5 +1,5 @@
 # ttracker
-An application-triggered time-tracker for all major desktop OS'es
+An automatically triggered time-tracker for all major desktop OS'es and browsers
 
 ## Run and develop from source
 
