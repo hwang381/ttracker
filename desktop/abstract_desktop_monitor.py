@@ -3,8 +3,6 @@ import psutil
 import time
 from typing import Optional
 from database.sqlite_store import SqliteStore
-from database.ping import Ping
-from utils.time import now_milliseconds
 
 
 class AbstractDesktopMonitor(abc.ABC):
