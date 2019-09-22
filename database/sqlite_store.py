@@ -1,12 +1,10 @@
 import sqlite3
-from typing import Tuple
 from contextlib import contextmanager
-from .time import now_milliseconds
+from .time_entry import TimeEntry
 
 
 @contextmanager
-def sqlite_execute(db_path, q, params=()):
-    conn = sqlite3.connect(db_path)
+def sqlite_execute(conn, q, params=()):
     cursor = conn.cursor()
     try:
         cursor = conn.cursor()
@@ -23,33 +21,11 @@ class SqliteStore(object):
         self.db_path = db_path
         self._schema_migrations = {
             0: self._migrate_0_to_1,
-            1: self._migrate_1_to_2,
         }
         self._migrate_schema()
-    
-    def append_event(self, event_type: str, event_host: str):
-        self.append_event_with_timestamp(now_milliseconds(), event_type, event_host)
 
-    def append_event_with_timestamp(self, timestamp: int, event_type: str, event_host: str):
-        with sqlite_execute(self.db_path,
-                            "INSERT INTO events (timestamp, event_type, event_host) VALUES(?, ?, ?)",
-                            (timestamp, event_type, event_host)
-                            ):
-            pass
-
-    def get_events(self, from_timestamp: int, to_timestamp: int) -> Tuple[int, str, str]:
-        with sqlite_execute(self.db_path,
-                            'SELECT timestamp, event_type, event_host FROM events WHERE timestamp BETWEEN ? AND ?',
-                            (from_timestamp, to_timestamp)) as cursor:
-            return cursor.fetchall()
-
-    def heartbeat(self):
-        with sqlite_execute(self.db_path, 'UPDATE heartbeat SET timestamp = ?', (now_milliseconds(),)):
-            pass
-
-    def get_heartbeat(self) -> int:
-        with sqlite_execute(self.db_path, 'SELECT timestamp FROM heartbeat') as cursor:
-            return cursor.fetchone()[0]
+    def _new_conn(self):
+        return sqlite3.connect(self.db_path)
 
     def _migrate_schema(self):
         schema_version = self._get_schema_version()
@@ -70,29 +46,23 @@ class SqliteStore(object):
         for statement in [
             'CREATE TABLE schema_version (v INTEGER)',
             'INSERT INTO schema_version (v) VALUES(1)',
-            'CREATE TABLE events (timestamp INTEGER, event_type TEXT, event_host TEXT)'
+            'CREATE TABLE time_entry (from_timestamp INTEGER, type TEXT, origin TEXT)'
         ]:
-            with sqlite_execute(self.db_path, statement):
+            with sqlite_execute(self._new_conn(), statement):
                 pass
-
-    def _migrate_1_to_2(self):
-        with sqlite_execute(self.db_path, 'CREATE TABLE heartbeat (timestamp INTEGER)'):
-            pass
-        with sqlite_execute(self.db_path, 'INSERT INTO heartbeat (timestamp) VALUES(0)'):
-            pass
 
     def _get_schema_version(self) -> int:
         if not self._if_schema_version_exists():
             return 0
-        with sqlite_execute(self.db_path, 'SELECT v FROM schema_version') as cursor:
+        with sqlite_execute(self._new_conn(), 'SELECT v FROM schema_version') as cursor:
             result = cursor.fetchone()
             return result[0]
 
     def _if_schema_version_exists(self) -> bool:
-        with sqlite_execute(self.db_path, 'PRAGMA table_info(schema_version)') as cursor:
+        with sqlite_execute(self._new_conn(), 'PRAGMA table_info(schema_version)') as cursor:
             results = cursor.fetchall()
             return len(results) != 0
 
     def _update_schema_version(self, v: int):
-        with sqlite_execute(self.db_path, 'UPDATE schema_version SET v = ?', (v,)):
+        with sqlite_execute(self._new_conn(), 'UPDATE schema_version SET v = ?', (v,)):
             pass
