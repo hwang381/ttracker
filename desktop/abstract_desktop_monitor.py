@@ -19,12 +19,7 @@ class AbstractDesktopMonitor(abc.ABC):
         active_pid = self.get_active_pid()
         process = psutil.Process(active_pid)
         program_name = process.exe()
-        print(f"Desktop app is {program_name}")
-        self.store.ping(Ping(
-            timestamp=now_milliseconds(),
-            ping_type='desktop',
-            origin=program_name
-        ))
+        self.store.ping('desktop', program_name)
 
     def start(self):
         while True:

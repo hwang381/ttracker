@@ -39,9 +39,13 @@ class SqliteStore(object):
         else:
             self.gen = 0
 
-    def ping(self, ping: Ping):
+    def ping(self, ping_type: str, origin: str):
         with self.ping_lock:
-            self.pings.append(ping)
+            self.pings.append(Ping(
+                ping_type=ping_type,
+                origin=origin,
+                timestamp=now_milliseconds()
+            ))
             if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
                 self._flush_pings()
 
