@@ -1,7 +1,10 @@
 import sqlite3
+from multiprocessing import Lock
 from .ping import Ping
+from .time_entry import TimeEntry
 from typing import List
 from contextlib import contextmanager
+from utils.time import now_milliseconds
 
 
 @contextmanager
@@ -20,6 +23,7 @@ def sqlite_execute(conn, q, params=()):
 class SqliteStore(object):
     def __init__(self, db_path: str):
         self.pings = []  # type: List[Ping]
+        self.ping_lock = Lock()
         self.PING_FLUSH_THRESHOLD = 5
         self.db_path = db_path
         self._schema_migrations = {
@@ -28,13 +32,33 @@ class SqliteStore(object):
         self._migrate_schema()
 
     def ping(self, ping: Ping):
-        self.pings.append(ping)
-        if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
-            self.flush_pings()
+        with self.ping_lock:
+            self.pings.append(ping)
+            if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
+                self._flush_pings()
 
-    def flush_pings(self):
-        # TODO
-        self.pings = []
+    def _flush_pings(self):
+        if not self.pings:
+            return
+        time_entries = []  # type: List[TimeEntry]
+        for i, ping in enumerate(self.pings):
+            if not time_entries \
+                    or time_entries[-1].entry_type != ping.ping_type \
+                    or time_entries[-1].origin != ping.origin:
+                time_entries.append(TimeEntry(
+                    from_timestamp=ping.timestamp,
+                    entry_type=ping.ping_type,
+                    origin=ping.origin,
+                    to_timestamp=self.pings[i + 1].timestamp if i + 1 != len(self.pings) else now_milliseconds()
+                ))
+            else:
+                time_entries[-1].to_timestamp = ping.timestamp
+        for i in range(len(time_entries)):
+            if i != len(time_entries) - 1:
+                time_entries[i].to_timestamp = -1
+            print(f"Flushing time entry {time_entries[i]}")
+
+        self.pings = []  # type: List[Ping]
 
     def _new_conn(self):
         return sqlite3.connect(self.db_path)
