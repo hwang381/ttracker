@@ -1,6 +1,7 @@
 import multiprocessing
 import logging
-from typing import Dict, Tuple
+from urllib.parse import urlparse
+from typing import Dict
 from flask import Flask, request, jsonify, send_from_directory
 from database.sqlite_store import SqliteStore
 from desktop.tell_os import is_linux, is_macos
@@ -46,7 +47,7 @@ def index():
     return send_from_directory('web', 'index.html')
 
 
-@flask_app.route('/api/stats')
+@flask_app.route('/api/stats', methods=['GET'])
 def api_stats():
     from_timestamp = request.args.get('from')
     to_timestamp = request.args.get('to')
@@ -72,6 +73,17 @@ def api_stats():
                                     + (last_to_timestamp - last_time_entry.from_timestamp)
 
     return jsonify(stats)
+
+
+@flask_app.route('/api/ping/browser', methods=['POST'])
+def api_browser_ping():
+    url = request.data.decode('utf-8')
+    parsed_url = urlparse(url)
+    netloc = parsed_url.netloc
+    if netloc:
+        store.ping('browser', netloc)
+        return 'browser ping successful'
+    return 'no netloc'
 
 
 flask_app.run(host='127.0.0.1', port=16789)
