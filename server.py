@@ -3,6 +3,7 @@ import logging
 from urllib.parse import urlparse
 from typing import Dict
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from database.sqlite_store import SqliteStore
 from desktop.tell_os import is_linux, is_macos
 from utils.time import now_milliseconds
@@ -37,6 +38,7 @@ desktop_monitor_p.start()
 # Start webapp
 ##
 flask_app = Flask(__name__)
+CORS(flask_app)
 # Less verbose logging from Flask
 werkzeug_logger = logging.getLogger('werkzeug')
 werkzeug_logger.setLevel(logging.ERROR)
@@ -77,6 +79,7 @@ def api_stats():
 
 @flask_app.route('/api/ping/browser', methods=['POST'])
 def api_browser_ping():
+    # todo: somehow verify the ping is actually coming from a verified extension
     url = request.data.decode('utf-8')
     parsed_url = urlparse(url)
     netloc = parsed_url.netloc
@@ -86,4 +89,4 @@ def api_browser_ping():
     return 'no netloc'
 
 
-flask_app.run(host='127.0.0.1', port=16789)
+flask_app.run(host='localhost', port=16789)
