@@ -1,8 +1,8 @@
 import sqlite3
-from multiprocessing import Lock
 from .ping import Ping
 from .time_entry import TimeEntry
-from typing import List, Optional, Tuple
+from .external_ping import ExternalPing
+from typing import List, Optional, Dict
 from contextlib import contextmanager
 from utils.time import now_milliseconds
 
@@ -23,8 +23,11 @@ def sqlite_execute(conn, q, params=()):
 class SqliteStore(object):
     def __init__(self, db_path: str):
         self.pings = []  # type: List[Ping]
-        self.ping_lock = Lock()
         self.PING_FLUSH_THRESHOLD = 5
+
+        self.external_pings = {}  # type: Dict[str, List[ExternalPing]]
+        self.EXTERNAL_PING_FLUSH_THRESHOLD = 5
+
         self.db_path = db_path
         self._schema_migrations = {
             0: self._migrate_0_to_1,
@@ -39,15 +42,18 @@ class SqliteStore(object):
         else:
             self.gen = 0
 
-    def ping(self, ping_type: str, origin: str):
-        with self.ping_lock:
-            self.pings.append(Ping(
-                ping_type=ping_type,
-                origin=origin,
-                timestamp=now_milliseconds()
-            ))
-            if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
-                self._flush_pings()
+    def desktop_ping(self, ping: Ping):
+        self.pings.append(ping)
+        if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
+            self._flush_pings()
+
+    def external_ping(self, external_ping: ExternalPing):
+        ping_type = external_ping.ping_type
+        if ping_type not in self.external_pings:
+            self.external_pings[ping_type] = []
+        queue = self.external_pings[ping_type]
+        queue.append(external_ping)
+        # TODO: flush
 
     def get_time_entries(self, from_timestamp: int, to_timestamp: int) -> List[TimeEntry]:
         with sqlite_execute(
@@ -67,6 +73,9 @@ class SqliteStore(object):
                 ))
             return results
 
+    ###
+    # base methods for desktop time entries
+    ###
     def _flush_pings(self):
         if not self.pings:
             return
@@ -138,6 +147,9 @@ class SqliteStore(object):
         ):
             pass
 
+    ###
+    # base methods
+    ###
     def _new_conn(self):
         return sqlite3.connect(self.db_path)
 
@@ -161,7 +173,9 @@ class SqliteStore(object):
             'CREATE TABLE schema_version (v INTEGER)',
             'INSERT INTO schema_version (v) VALUES(1)',
             'CREATE TABLE time_entry '
-            '(from_timestamp INTEGER, type TEXT, origin TEXT, to_timestamp INTEGER, gen INTEGER)'
+            '(from_timestamp INTEGER, type TEXT, origin TEXT, to_timestamp INTEGER, gen INTEGER)',
+            'CREATE TABLE browser_time_entry '
+            '(from_timestamp INTEGER, origin TEXT, to_timestamp INTEGER, gen INTEGER)'
         ]:
             with sqlite_execute(self._new_conn(), statement):
                 pass

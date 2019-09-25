@@ -3,6 +3,8 @@ import psutil
 import time
 from typing import Optional
 from database.sqlite_store import SqliteStore
+from database.ping import Ping
+from utils.time import now_milliseconds
 
 
 class AbstractDesktopMonitor(abc.ABC):
@@ -17,7 +19,11 @@ class AbstractDesktopMonitor(abc.ABC):
         active_pid = self.get_active_pid()
         process = psutil.Process(active_pid)
         program_name = process.exe()
-        self.store.ping('desktop', program_name)
+        self.store.desktop_ping(Ping(
+            timestamp=now_milliseconds(),
+            ping_type='desktop',
+            origin=program_name
+        ))
 
     def start(self):
         while True:

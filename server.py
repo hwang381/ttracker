@@ -5,6 +5,7 @@ from typing import Dict
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from database.sqlite_store import SqliteStore
+from database.external_ping import ExternalPing
 from desktop.tell_os import is_linux, is_macos
 from utils.time import now_milliseconds
 
@@ -80,13 +81,30 @@ def api_stats():
 @flask_app.route('/api/ping/browser', methods=['POST'])
 def api_browser_ping():
     # todo: somehow verify the ping is actually coming from a verified extension
-    url = request.data.decode('utf-8')
-    parsed_url = urlparse(url)
+    payload = request.json
+
+    # check url
+    if 'url' not in payload:
+        return 'url not in payload', 400
+    parsed_url = urlparse(payload['url'])
     netloc = parsed_url.netloc
-    if netloc:
-        store.ping('browser', netloc)
-        return 'browser ping successful'
-    return 'no netloc'
+    if not netloc:
+        return 'no netloc ', 400
+
+    # check gen
+    if 'gen' not in payload:
+        return 'gen not in payload', 400
+    gen = payload['gen']
+    if gen not in [0, 1]:
+        return f"invalid gen {gen}"
+
+    store.external_ping(ExternalPing(
+        timestamp=now_milliseconds(),
+        ping_type='browser',
+        origin=netloc,
+        gen=gen
+    ))
+    return 'browser ping successful'
 
 
 flask_app.run(host='localhost', port=16789)
