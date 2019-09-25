@@ -1,6 +1,7 @@
 import sqlite3
 from .ping import Ping
 from .time_entry import TimeEntry
+from .external_time_entry import ExternalTimeEntry
 from .external_ping import ExternalPing
 from typing import List, Optional, Dict
 from contextlib import contextmanager
@@ -27,6 +28,10 @@ class SqliteStore(object):
 
         self.external_pings = {}  # type: Dict[str, List[ExternalPing]]
         self.EXTERNAL_PING_FLUSH_THRESHOLD = 5
+
+        self.SANCTIONED_EXTERNAL_TYPES = [
+            'browser'
+        ]
 
         self.db_path = db_path
         self._schema_migrations = {
@@ -144,6 +149,54 @@ class SqliteStore(object):
                 'INSERT INTO time_entry (from_timestamp, type, origin, to_timestamp, gen) VALUES(?, ?, ?, ?, ?)',
                 (time_entry.from_timestamp, time_entry.entry_type, time_entry.origin, time_entry.to_timestamp,
                  time_entry.gen)
+        ):
+            pass
+
+    ###
+    # base methods for external time entries
+    ###
+    def _check_table_name(self, entry_type) -> str:
+        if entry_type not in self.SANCTIONED_EXTERNAL_TYPES:
+            raise NotImplementedError()
+        return f"{entry_type}_time_entry"
+
+    def _get_last_external_time_entry(self, entry_type: str) -> Optional[ExternalTimeEntry]:
+        # TODO: if the external table exists
+        table_name = self._check_table_name(entry_type)
+        with sqlite_execute(
+                self._new_conn(),
+                f"SELECT from_timestamp, origin, to_timestamp, gen FROM {table_name} ORDER BY ROWID DESC LIMIT 1"
+        ) as cursor:
+            result = cursor.fetchone()
+            if not result:
+                return None
+            return ExternalTimeEntry(
+                from_timestamp=result[0],
+                entry_type=entry_type,
+                origin=result[1],
+                to_timestamp=result[2],
+                gen=result[3]
+            )
+
+    def _update_last_external_time_entry(self, entry_type: str, to_timestamp: int):
+        table_name = self._check_table_name(entry_type)
+        with sqlite_execute(
+                self._new_conn(),
+                f'UPDATE {table_name} SET to_timestamp = ? WHERE ROWID = (SELECT MAX(ROWID) FROM {table_name})',
+                (to_timestamp,)
+        ):
+            pass
+
+    def _append_external_time_entry(self, external_time_entry: ExternalTimeEntry):
+        table_name = self._check_table_name(external_time_entry.entry_type)
+        with sqlite_execute(
+                self._new_conn(),
+                f'INSERT INTO {table_name} (from_timestamp, origin, to_timestamp, gen) VALUES (?, ?, ?, ?)',
+                (external_time_entry.from_timestamp,
+                 external_time_entry.origin,
+                 external_time_entry.to_timestamp,
+                 external_time_entry.gen
+                 )
         ):
             pass
 
