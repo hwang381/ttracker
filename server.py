@@ -82,16 +82,16 @@ def api_browser_ping():
     # todo: somehow verify the ping is actually coming from a verified extension
     payload = request.json
 
-    # check url
-    if 'url' not in payload:
-        return 'url not in payload', 400
-    url = payload['url']
+    # check hostname
+    if 'hostname' not in payload:
+        return 'hostname not in payload', 400
+    hostname = payload['hostname']
 
-    print(f"Browser ping {url}")
+    print(f"Browser ping {hostname}")
     store.ping(Ping(
         timestamp=now_milliseconds(),
         ping_type='browser',
-        origin=url,
+        origin=hostname,
     ))
     return 'browser ping successful'
 
