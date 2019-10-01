@@ -1,4 +1,5 @@
 import sqlite3
+import logging
 from .ping import Ping
 from .time_entry import TimeEntry
 from typing import List, Optional, Dict
@@ -100,13 +101,13 @@ class SqliteStore(object):
         # merge the first time entry if necessary
         last_time_entry = self._get_last_time_entry(ping_type)
         if last_time_entry and last_time_entry.to_timestamp + NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS > time_entries[0].from_timestamp:
-            print(f"[{ping_type}] Merging the first time entry to {time_entries[0].to_timestamp}")
+            logging.info(f"[{ping_type}] Merging the first time entry to {time_entries[0].to_timestamp}")
             self._update_last_time_entry(time_entries[0].to_timestamp, ping_type)
             del time_entries[0]
 
         # persist the rest of time entries
         for time_entry in time_entries:
-            print(f"[{ping_type}] Persisting time entry {time_entry}")
+            logging.info(f"[{ping_type}] Persisting time entry {time_entry}")
             self._append_time_entry(time_entry, ping_type)
 
         self._reset_ping_queue_or_raise(ping_type)
@@ -179,14 +180,14 @@ class SqliteStore(object):
         schema_version = self._get_schema_version()
         latest_schema_version = max(self._schema_migrations.keys()) + 1
         if schema_version == latest_schema_version:
-            print(f"Already on latest schema version {latest_schema_version}")
+            logging.info(f"Already on latest schema version {latest_schema_version}")
             return
         migrate_versions = [i for i in range(schema_version, latest_schema_version)]
         for v in migrate_versions:
             if v not in self._schema_migrations:
                 raise RuntimeError(f'Schema migration for version {v} is undefined')
         for v in migrate_versions:
-            print(f"Executing schema migration for version {v}")
+            logging.info(f"Executing schema migration for version {v}")
             self._schema_migrations[v]()
         self._update_schema_version(latest_schema_version)
 

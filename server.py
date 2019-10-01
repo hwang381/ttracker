@@ -8,6 +8,15 @@ from database.ping import Ping
 from desktop.tell_os import is_linux, is_macos
 from utils.time import now_milliseconds
 
+
+###
+# Setup logging
+###
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='[%(filename)s][%(levelname)s] %(message)s'
+)
+
 ###
 # Initialize storage
 ##
@@ -87,7 +96,7 @@ def api_browser_ping():
         return 'hostname not in payload', 400
     hostname = payload['hostname']
 
-    print(f"Browser ping {hostname}")
+    logging.debug(f"Browser ping {hostname}")
     store.ping(Ping(
         timestamp=now_milliseconds(),
         ping_type='browser',

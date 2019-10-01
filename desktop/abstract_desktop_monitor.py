@@ -1,6 +1,7 @@
 import abc
 import psutil
 import time
+import logging
 from typing import Optional
 from database.sqlite_store import SqliteStore
 from database.ping import Ping
@@ -19,7 +20,7 @@ class AbstractDesktopMonitor(abc.ABC):
         active_pid = self.get_active_pid()
         process = psutil.Process(active_pid)
         program_name = process.exe()
-        print(f"Desktop ping {program_name}")
+        logging.debug(f"Desktop ping {program_name}")
         self.store.ping(Ping(
             timestamp=now_milliseconds(),
             ping_type='desktop',
