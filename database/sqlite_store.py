@@ -1,8 +1,6 @@
 import sqlite3
 from .ping import Ping
 from .time_entry import TimeEntry
-from .external_time_entry import ExternalTimeEntry
-from .external_ping import ExternalPing
 from typing import List, Optional, Dict
 from contextlib import contextmanager
 from utils.time import now_milliseconds
@@ -21,17 +19,20 @@ def sqlite_execute(conn, q, params=()):
         conn.close()
 
 
+SANCTIONED_PING_TYPES = [
+    'desktop',
+    'browser'
+]
+
+PING_FLUSH_THRESHOLD_SECONDS = 5
+assert PING_FLUSH_THRESHOLD_SECONDS > 0
+
+NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS = 5 * 1000
+
+
 class SqliteStore(object):
     def __init__(self, db_path: str):
-        self.pings = []  # type: List[Ping]
-        self.PING_FLUSH_THRESHOLD = 5
-
-        self.external_pings = {}  # type: Dict[str, List[ExternalPing]]
-        self.EXTERNAL_PING_FLUSH_THRESHOLD = 5
-
-        self.SANCTIONED_EXTERNAL_TYPES = [
-            'browser'
-        ]
+        self.pings = {}  # type: Dict[str, List[Ping]]
 
         self.db_path = db_path
         self._schema_migrations = {
@@ -39,31 +40,23 @@ class SqliteStore(object):
         }
         self._migrate_schema()
 
-        last_time_entry = self._get_last_time_entry()
-        if not last_time_entry:
-            self.gen = 0
-        elif last_time_entry.gen == 0:
-            self.gen = 1
-        else:
-            self.gen = 0
+    ###
+    # Write API
+    ###
+    def ping(self, ping: Ping):
+        ping_queue = self._get_ping_queue_or_raise(ping.ping_type)
+        ping_queue.append(ping)
+        if len(ping_queue) >= PING_FLUSH_THRESHOLD_SECONDS:
+            self._flush_pings(ping.ping_type, now_milliseconds())
 
-    def desktop_ping(self, ping: Ping):
-        self.pings.append(ping)
-        if len(self.pings) >= self.PING_FLUSH_THRESHOLD:
-            self._flush_pings()
-
-    def external_ping(self, external_ping: ExternalPing):
-        ping_type = external_ping.ping_type
-        if ping_type not in self.external_pings:
-            self.external_pings[ping_type] = []
-        queue = self.external_pings[ping_type]
-        queue.append(external_ping)
-        # TODO: flush
-
-    def get_time_entries(self, from_timestamp: int, to_timestamp: int) -> List[TimeEntry]:
+    ###
+    # Read API
+    ###
+    def get_time_entries(self, from_timestamp: int, to_timestamp: int, entry_type: str) -> List[TimeEntry]:
         with sqlite_execute(
                 self._new_conn(),
-                'SELECT from_timestamp, type, origin, to_timestamp, gen from time_entry '
+                'SELECT from_timestamp, origin, to_timestamp '
+                f'from {self._get_time_entry_table_name_or_raise(entry_type)} '
                 'WHERE from_timestamp >= ? AND from_timestamp < ?',
                 (from_timestamp, to_timestamp)
         ) as cursor:
@@ -71,115 +64,95 @@ class SqliteStore(object):
             for result in cursor.fetchall():
                 results.append(TimeEntry(
                     from_timestamp=result[0],
-                    entry_type=result[1],
-                    origin=result[2],
-                    to_timestamp=result[3],
-                    gen=result[4]
+                    entry_type=entry_type,
+                    origin=result[1],
+                    to_timestamp=result[2],
                 ))
             return results
 
     ###
-    # base methods for desktop time entries
+    # Logic methods
     ###
-    def _flush_pings(self):
-        if not self.pings:
-            return
+    def _flush_pings(self, ping_type: str, flush_at_milliseconds: int):
+        ping_queue = self._get_ping_queue_or_raise(ping_type)
         time_entries = []  # type: List[TimeEntry]
-        for i, ping in enumerate(self.pings):
+
+        # merge in-memory pings into in-memory time entries
+        for ping in ping_queue:
             if not time_entries \
                     or time_entries[-1].entry_type != ping.ping_type \
                     or time_entries[-1].origin != ping.origin:
+                if time_entries:
+                    # end the previous time entry properly
+                    time_entries[-1].to_timestamp = ping.timestamp
                 time_entries.append(TimeEntry(
                     from_timestamp=ping.timestamp,
                     entry_type=ping.ping_type,
                     origin=ping.origin,
-                    to_timestamp=self.pings[i + 1].timestamp if i + 1 != len(self.pings) else now_milliseconds(),
-                    gen=self.gen
+                    to_timestamp=-1
                 ))
             else:
                 time_entries[-1].to_timestamp = ping.timestamp
 
-        for i in range(len(time_entries)):
-            if i != len(time_entries) - 1:
-                time_entries[i].to_timestamp = 0
-            time_entry = time_entries[i]
-            if i == 0:
-                last_time_entry = self._get_last_time_entry()
-                if last_time_entry and last_time_entry.gen == time_entry.gen:
-                    if last_time_entry.entry_type == time_entry.entry_type \
-                            and last_time_entry.origin == time_entry.origin:
-                        print("Merging into last time entry")
-                        self._update_last_time_entry(time_entry.to_timestamp)
-                        continue
-                    else:
-                        print("Updating last time entry")
-                        self._update_last_time_entry(0)
-            print(f"Flushing time entry {time_entry}")
-            self._append_time_entry(time_entry)
+        # end the last time entry properly
+        time_entries[-1].to_timestamp = ping_queue[-1].timestamp
 
-        self.pings = []  # type: List[Ping]
+        # merge the first time entry if necessary
+        last_time_entry = self._get_last_time_entry(ping_type)
+        if last_time_entry and last_time_entry.to_timestamp + NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS > time_entries[0].from_timestamp:
+            print(f"Merging the first time entry to {time_entries[0].to_timestamp}")
+            self._update_last_time_entry(time_entries[0].to_timestamp, ping_type)
+            del time_entries[0]
 
-    def _get_last_time_entry(self) -> Optional[TimeEntry]:
+        # persist the rest of time entries
+        for time_entry in time_entries:
+            print(f"Persisting time entry {time_entry}")
+            self._append_time_entry(time_entry, ping_type)
+
+        self._reset_ping_queue_or_raise(ping_type)
+
+    ###
+    # Helper methods
+    ###
+    def _check_ping_type(self, ping_type: str):
+        if ping_type not in SANCTIONED_PING_TYPES:
+            raise NotImplementedError(f"Unsupported ping type {ping_type}")
+
+    def _get_ping_queue_or_raise(self, ping_type: str) -> List[Ping]:
+        self._check_ping_type(ping_type)
+        if ping_type not in self.pings:
+            self.pings[ping_type] = []
+        return self.pings[ping_type]
+
+    def _reset_ping_queue_or_raise(self, ping_type: str):
+        self._check_ping_type(ping_type)
+        self.pings[ping_type] = []
+
+    def _get_time_entry_table_name_or_raise(self, entry_type: str) -> str:
+        self._check_ping_type(entry_type)
+        return f"{entry_type}_time_entry"
+
+    ###
+    # Database logic methods
+    ###
+    def _get_last_time_entry(self, entry_type: str) -> Optional[TimeEntry]:
+        table_name = self._get_time_entry_table_name_or_raise(entry_type)
         with sqlite_execute(
                 self._new_conn(),
-                'SELECT from_timestamp, type, origin, to_timestamp, gen FROM time_entry ORDER BY ROWID DESC LIMIT 1'
+                f'SELECT from_timestamp, origin, to_timestamp FROM {table_name} ORDER BY ROWID DESC LIMIT 1'
         ) as cursor:
             result = cursor.fetchone()
             if not result:
                 return None
             return TimeEntry(
                 from_timestamp=result[0],
-                entry_type=result[1],
-                origin=result[2],
-                to_timestamp=result[3],
-                gen=result[4]
-            )
-
-    def _update_last_time_entry(self, to_timestamp: int):
-        with sqlite_execute(
-                self._new_conn(),
-                'UPDATE time_entry SET to_timestamp = ? WHERE ROWID = (SELECT MAX(ROWID) FROM time_entry)',
-                (to_timestamp,)
-        ):
-            pass
-
-    def _append_time_entry(self, time_entry: TimeEntry):
-        with sqlite_execute(
-                self._new_conn(),
-                'INSERT INTO time_entry (from_timestamp, type, origin, to_timestamp, gen) VALUES(?, ?, ?, ?, ?)',
-                (time_entry.from_timestamp, time_entry.entry_type, time_entry.origin, time_entry.to_timestamp,
-                 time_entry.gen)
-        ):
-            pass
-
-    ###
-    # base methods for external time entries
-    ###
-    def _check_table_name(self, entry_type) -> str:
-        if entry_type not in self.SANCTIONED_EXTERNAL_TYPES:
-            raise NotImplementedError()
-        return f"{entry_type}_time_entry"
-
-    def _get_last_external_time_entry(self, entry_type: str) -> Optional[ExternalTimeEntry]:
-        # TODO: if the external table exists
-        table_name = self._check_table_name(entry_type)
-        with sqlite_execute(
-                self._new_conn(),
-                f"SELECT from_timestamp, origin, to_timestamp, gen FROM {table_name} ORDER BY ROWID DESC LIMIT 1"
-        ) as cursor:
-            result = cursor.fetchone()
-            if not result:
-                return None
-            return ExternalTimeEntry(
-                from_timestamp=result[0],
                 entry_type=entry_type,
                 origin=result[1],
                 to_timestamp=result[2],
-                gen=result[3]
             )
 
-    def _update_last_external_time_entry(self, entry_type: str, to_timestamp: int):
-        table_name = self._check_table_name(entry_type)
+    def _update_last_time_entry(self, to_timestamp: int, entry_type: str):
+        table_name = self._get_time_entry_table_name_or_raise(entry_type)
         with sqlite_execute(
                 self._new_conn(),
                 f'UPDATE {table_name} SET to_timestamp = ? WHERE ROWID = (SELECT MAX(ROWID) FROM {table_name})',
@@ -187,21 +160,17 @@ class SqliteStore(object):
         ):
             pass
 
-    def _append_external_time_entry(self, external_time_entry: ExternalTimeEntry):
-        table_name = self._check_table_name(external_time_entry.entry_type)
+    def _append_time_entry(self, time_entry: TimeEntry, entry_type: str):
+        table_name = self._get_time_entry_table_name_or_raise(entry_type)
         with sqlite_execute(
                 self._new_conn(),
-                f'INSERT INTO {table_name} (from_timestamp, origin, to_timestamp, gen) VALUES (?, ?, ?, ?)',
-                (external_time_entry.from_timestamp,
-                 external_time_entry.origin,
-                 external_time_entry.to_timestamp,
-                 external_time_entry.gen
-                 )
+                f'INSERT INTO {table_name} (from_timestamp, origin, to_timestamp) VALUES(?, ?, ?)',
+                (time_entry.from_timestamp, time_entry.origin, time_entry.to_timestamp,)
         ):
             pass
 
     ###
-    # base methods
+    # Database methods
     ###
     def _new_conn(self):
         return sqlite3.connect(self.db_path)
@@ -225,10 +194,10 @@ class SqliteStore(object):
         for statement in [
             'CREATE TABLE schema_version (v INTEGER)',
             'INSERT INTO schema_version (v) VALUES(1)',
-            'CREATE TABLE time_entry '
-            '(from_timestamp INTEGER, type TEXT, origin TEXT, to_timestamp INTEGER, gen INTEGER)',
+            'CREATE TABLE desktop_time_entry '
+            '(from_timestamp INTEGER, origin TEXT, to_timestamp INTEGER)',
             'CREATE TABLE browser_time_entry '
-            '(from_timestamp INTEGER, origin TEXT, to_timestamp INTEGER, gen INTEGER)'
+            '(from_timestamp INTEGER, origin TEXT, to_timestamp INTEGER)'
         ]:
             with sqlite_execute(self._new_conn(), statement):
                 pass
