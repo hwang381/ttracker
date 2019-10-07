@@ -12,11 +12,16 @@
   </head>
   <body>
     <div class="container">
-        <h3 style="margin-top: 18px; margin-bottom: 18px">Today</h3>
-        <div id="loading" class="spinner-border" role="status">
+        <h3 style="margin-top: 18px; margin-bottom: 18px">Desktop</h3>
+        <div id="loading-desktop" class="spinner-border" role="status">
           <span class="sr-only">Loading...</span>
         </div>
-        <ul id="today-ul"></ul>
+        <ul id="today-desktop"></ul>
+        <h3 style="margin-top: 18px; margin-bottom: 18px">Browser</h3>
+        <div id="loading-browser" class="spinner-border" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <ul id="today-browser"></ul>
     </div>
 
     <!-- Optional JavaScript -->
@@ -48,29 +53,32 @@
       startOfDay = startOfDay.setHours(0, 0, 0, 0);
       let endOfDay = new Date();
       endOfDay = endOfDay.setHours(23, 59, 59, 999);
-      fetch(`/api/stats?from=${startOfDay}&to=${endOfDay}&type=desktop`)
-        .then(response => response.json())
-        .then(data => {
-          let events = Object.keys(data).map(origin => {
-            return {
-              origin: origin,
-              duration: data[origin]
-            }
-          });
-          events.sort((e1, e2) => {
-            return e2.duration - e1.duration
-          });
-          events.forEach(({origin, duration}) => {
-            const liNode = document.createElement('li');
-            const textNode = document.createTextNode(`${origin}: ${printMilliseconds(duration)}`);
-            liNode.appendChild(textNode);
-            document.getElementById('today-ul').appendChild(liNode);
-          });
-          document.getElementById('loading').style.display = 'none'
-        })
-        .catch(error => {
-          console.error(error);
-        })
+
+      ['desktop', 'browser'].forEach(pingType => {
+        fetch(`/api/stats?from=${startOfDay}&to=${endOfDay}&type=${pingType}`)
+          .then(response => response.json())
+          .then(data => {
+            let events = Object.keys(data).map(origin => {
+              return {
+                origin: origin,
+                duration: data[origin]
+              }
+            });
+            events.sort((e1, e2) => {
+              return e2.duration - e1.duration
+            });
+            events.forEach(({origin, duration}) => {
+              const liNode = document.createElement('li');
+              const textNode = document.createTextNode(`${origin}: ${printMilliseconds(duration)}`);
+              liNode.appendChild(textNode);
+              document.getElementById(`today-${pingType}`).appendChild(liNode);
+            });
+            document.getElementById(`loading-${pingType}`).style.display = 'none'
+          })
+          .catch(error => {
+            console.error(error);
+          })
+      });
     </script>
   </body>
 </html>
