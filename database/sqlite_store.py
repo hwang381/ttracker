@@ -5,6 +5,7 @@ from .time_entry import TimeEntry
 from typing import List, Optional, Dict
 from contextlib import contextmanager
 from utils.time import now_milliseconds
+from utils.sanctioned_ping_types import SANCTIONED_PING_TYPES
 
 
 @contextmanager
@@ -19,11 +20,6 @@ def sqlite_execute(conn, q, params=()):
         cursor.close()
         conn.close()
 
-
-SANCTIONED_PING_TYPES = [
-    'desktop',
-    'browser'
-]
 
 PING_FLUSH_THRESHOLD_SECONDS = 5
 assert PING_FLUSH_THRESHOLD_SECONDS > 0

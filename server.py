@@ -7,6 +7,7 @@ from database.sqlite_store import SqliteStore
 from database.ping import Ping
 from desktop.tell_os import is_linux, is_macos
 from utils.time import now_milliseconds
+from utils.sanctioned_ping_types import SANCTIONED_PING_TYPES
 
 
 ###
@@ -62,26 +63,30 @@ def index():
 def api_stats():
     from_timestamp = request.args.get('from')
     to_timestamp = request.args.get('to')
-    if not from_timestamp or not to_timestamp:
-        return 'from or to missing', 400
+    ping_type = request.args.get('type')
+
+    if not from_timestamp or not to_timestamp or not ping_type:
+        return 'from or to or type missing', 400
     if from_timestamp > to_timestamp:
         return 'from is bigger than to', 400
+    if ping_type not in SANCTIONED_PING_TYPES:
+        return 'type is invalid', 400
+
     from_timestamp = int(from_timestamp)
     to_timestamp = min(int(to_timestamp), now_milliseconds())
 
-    time_entries = store.get_time_entries(from_timestamp, to_timestamp)
     stats = {}  # type: Dict[str, int]
-    for i in range(len(time_entries) - 1):
-        time_entry = time_entries[i]
-        to_timestamp = time_entry.to_timestamp if time_entry.to_timestamp != 0 else time_entries[i + 1].from_timestamp
-        # todo: account for event_type as well
-        stats[time_entry.origin] = stats.get(time_entry.origin, 0) + (to_timestamp - time_entry.from_timestamp)
-
-    last_time_entry = time_entries[-1]
-    last_to_timestamp = last_time_entry.to_timestamp if last_time_entry.to_timestamp != 0 else to_timestamp
-    # todo: account for event_type as well
-    stats[last_time_entry.origin] = stats.get(last_time_entry.origin, 0) \
-                                    + (last_to_timestamp - last_time_entry.from_timestamp)
+    time_entries = store.get_time_entries(
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+        entry_type=ping_type
+    )
+    for time_entry in time_entries:
+        origin = time_entry.origin
+        duration = time_entry.to_timestamp - time_entry.from_timestamp
+        if duration == 0:
+            duration = 1
+        stats[origin] = stats.get(origin, 0) + duration
 
     return jsonify(stats)
 
