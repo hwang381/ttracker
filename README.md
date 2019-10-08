@@ -5,15 +5,27 @@ An automatically triggered time-tracker for all major desktop OS'es and browsers
 
 ### Prerequisites
 * `Python 3`
-* `pip`
+* [`virtualenv`](https://packaging.python.org/guides/installing-using-pip-and-virtualenv/)
 
-(The following assumes `Python 3` is installed as `python3` and `pip` as `pip3`. Change commands to `python` and `pip` if you see appropriate)
-
+#### Prepare on Linux
 ```bash
-pip3 install -r requirements.txt
-python3 server.py
+python3 -m virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt -r requirements_linux.txt
 ```
 
+#### Prepare on macOS
+```bash
+python3 -m virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt -r requirements_macos.txt
+```
+
+#### Start
+```bash
+source venv/bin/activate
+python server.py
+```
 Visit [localhost:16789](http://localhost:16789) to view the web interface
 
 ## (Recommended) More precise time tracking within browsers
