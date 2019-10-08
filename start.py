@@ -17,6 +17,11 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='[%(filename)s][%(levelname)s] %(message)s'
 )
+# less verbose logging from requests
+logging.getLogger("requests").setLevel(logging.ERROR)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+# Less verbose logging from Flask
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 ###
 # Initialize storage
@@ -36,7 +41,7 @@ def start_desktop_monitor():
         desktop_monitor_constructor = MacOSDesktopMonitor
     else:
         raise RuntimeError("Unsupported OS")
-    desktop_monitor = desktop_monitor_constructor(store)
+    desktop_monitor = desktop_monitor_constructor()
     desktop_monitor.start()
 
 
@@ -49,9 +54,6 @@ desktop_monitor_p.start()
 ##
 flask_app = Flask(__name__)
 CORS(flask_app)
-# Less verbose logging from Flask
-werkzeug_logger = logging.getLogger('werkzeug')
-werkzeug_logger.setLevel(logging.ERROR)
 
 
 @flask_app.route('/')
@@ -108,6 +110,25 @@ def api_browser_ping():
         origin=hostname,
     ))
     return 'browser ping successful'
+
+
+@flask_app.route('/api/ping/desktop', methods=['POST'])
+def api_desktop_ping():
+    # todo: somehow verify the ping is actually coming from this application
+    payload = request.json
+
+    # check program
+    if 'program' not in payload:
+        return 'program not in payload', 400
+    program = payload['program']
+
+    logging.debug(f"Desktop ping {program}")
+    store.ping(Ping(
+        timestamp=now_milliseconds(),
+        ping_type='desktop',
+        origin=program
+    ))
+    return 'desktop ping successful'
 
 
 flask_app.run(host='localhost', port=16789)

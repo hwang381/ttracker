@@ -6,7 +6,6 @@ if is_linux():
     from contextlib import contextmanager
     from typing import Optional
     from .abstract_desktop_monitor import AbstractDesktopMonitor
-    from database.sqlite_store import SqliteStore
 
     @contextmanager
     def window_obj(display, win_id):
@@ -21,8 +20,7 @@ if is_linux():
 
 
     class LinuxDesktopMonitor(AbstractDesktopMonitor):
-        def __init__(self, store: SqliteStore):
-            super(LinuxDesktopMonitor, self).__init__(store)
+        def __init__(self):
             self.display = Xlib.display.Display()
             self.NET_ACTIVE_WINDOW = self.display.intern_atom('_NET_ACTIVE_WINDOW')
             self.NET_WM_PID = self.display.intern_atom('_NET_WM_PID')

@@ -24,7 +24,7 @@ pip install -r requirements.txt -r requirements_macos.txt
 #### Start
 ```bash
 source venv/bin/activate
-python server.py
+python start.py
 ```
 Visit [localhost:16789](http://localhost:16789) to view the web interface
 
