@@ -1,84 +1,97 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 
     <title>ttracker</title>
-  </head>
-  <body>
-    <div class="container">
-        <h3 style="margin-top: 18px; margin-bottom: 18px">Desktop</h3>
-        <div id="loading-desktop" class="spinner-border" role="status">
-          <span class="sr-only">Loading...</span>
-        </div>
-        <ul id="today-desktop"></ul>
-        <h3 style="margin-top: 18px; margin-bottom: 18px">Browser</h3>
-        <div id="loading-browser" class="spinner-border" role="status">
-          <span class="sr-only">Loading...</span>
-        </div>
-        <ul id="today-browser"></ul>
+</head>
+<body>
+<div class="container">
+    <div style="margin-top: 18px; margin-bottom: 18px">
+        <h2>Today</h2>
+        <span class="sr-only">Loading...</span>
+        <button type="button" class="btn btn-danger">Pause</button>
     </div>
+    <h4>Desktop</h4>
+    <div id="loading-desktop" class="spinner-border" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+    <ul id="today-desktop"></ul>
+    <h4>Browser</h4>
+    <div id="loading-browser" class="spinner-border" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+    <ul id="today-browser"></ul>
+</div>
 
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
 
-    <script type="text/javascript">
-      function leftPad(num) {
+<script type="text/javascript">
+    function leftPad(num) {
         return (num < 10) ? '0' + num : num
-      }
+    }
 
-      function printMilliseconds(duration) {
+    function printMilliseconds(duration) {
         const seconds = Math.floor(duration / 1000) % 60;
         const minutes = Math.floor(duration / 1000 / 60) % 60;
         const hours = Math.floor(duration / 1000 / 60 / 60) % 24;
 
         if (hours !== 0) {
-          return leftPad(hours) + ":" + leftPad(minutes) + ":" + leftPad(seconds)
+            return leftPad(hours) + ":" + leftPad(minutes) + ":" + leftPad(seconds)
         } else if (minutes !== 0) {
-          return leftPad(minutes) + ":" + leftPad(seconds)
+            return leftPad(minutes) + ":" + leftPad(seconds)
         } else {
-          return seconds + "s"
+            return seconds + "s"
         }
-      }
+    }
 
-      let startOfDay = new Date();
-      startOfDay = startOfDay.setHours(0, 0, 0, 0);
-      let endOfDay = new Date();
-      endOfDay = endOfDay.setHours(23, 59, 59, 999);
+    let startOfDay = new Date();
+    startOfDay = startOfDay.setHours(0, 0, 0, 0);
+    let endOfDay = new Date();
+    endOfDay = endOfDay.setHours(23, 59, 59, 999);
 
-      ['desktop', 'browser'].forEach(pingType => {
+
+    ['desktop', 'browser'].forEach(pingType => {
         fetch(`/api/stats?from=${startOfDay}&to=${endOfDay}&type=${pingType}`)
-          .then(response => response.json())
-          .then(data => {
-            let events = Object.keys(data).map(origin => {
-              return {
-                origin: origin,
-                duration: data[origin]
-              }
-            });
-            events.sort((e1, e2) => {
-              return e2.duration - e1.duration
-            });
-            events.forEach(({origin, duration}) => {
-              const liNode = document.createElement('li');
-              const textNode = document.createTextNode(`${origin}: ${printMilliseconds(duration)}`);
-              liNode.appendChild(textNode);
-              document.getElementById(`today-${pingType}`).appendChild(liNode);
-            });
-            document.getElementById(`loading-${pingType}`).style.display = 'none'
-          })
-          .catch(error => {
-            console.error(error);
-          })
-      });
-    </script>
-  </body>
+            .then(response => response.json())
+            .then(data => {
+                let events = Object.keys(data).map(origin => {
+                    return {
+                        origin: origin,
+                        duration: data[origin]
+                    }
+                });
+                events.sort((e1, e2) => {
+                    return e2.duration - e1.duration
+                });
+                events.forEach(({origin, duration}) => {
+                    const liNode = document.createElement('li');
+                    const textNode = document.createTextNode(`${origin}: ${printMilliseconds(duration)}`);
+                    liNode.appendChild(textNode);
+                    document.getElementById(`today-${pingType}`).appendChild(liNode);
+                });
+                document.getElementById(`loading-${pingType}`).style.display = 'none'
+            })
+            .catch(error => {
+                console.error(error);
+            })
+    });
+</script>
+</body>
 </html>
