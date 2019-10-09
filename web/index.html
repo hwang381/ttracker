@@ -13,16 +13,19 @@
 </head>
 <body>
 <div class="container">
-    <div style="margin-top: 18px; margin-bottom: 18px">
+    <div id="today-container" style="margin-top: 18px; margin-bottom: 18px">
         <h2>Today</h2>
-        <span class="sr-only">Loading...</span>
-        <button type="button" class="btn btn-danger">Pause</button>
+        <div id="loading-paused" class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
     </div>
+
     <h4>Desktop</h4>
     <div id="loading-desktop" class="spinner-border" role="status">
         <span class="sr-only">Loading...</span>
     </div>
     <ul id="today-desktop"></ul>
+
     <h4>Browser</h4>
     <div id="loading-browser" class="spinner-border" role="status">
         <span class="sr-only">Loading...</span>
@@ -61,11 +64,48 @@
         }
     }
 
+    fetch('/api/paused')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loading-paused').style.display = 'none';
+            const paused = data['paused'];
+            if (paused === undefined) {
+                throw new Error('paused is undefined?')
+            }
+            const buttonNode = document.createElement('button');
+            buttonNode.setAttribute('type', 'button');
+            if (paused) {
+                buttonNode.setAttribute('class', 'btn btn-success');
+                buttonNode.innerText = 'Resume';
+                buttonNode.addEventListener('click', () => {
+                    fetch('/api/unpause', {
+                        method: 'post'
+                    }).finally(() => {
+                        location.reload()
+                    })
+                })
+            } else {
+                buttonNode.setAttribute('class', 'btn btn-warning');
+                buttonNode.innerText = 'Pause';
+                buttonNode.addEventListener('click', () => {
+                    fetch('/api/pause', {
+                        method: 'post'
+                    }).finally(() => {
+                        location.reload()
+                    })
+                })
+            }
+            const todayContainer = document.getElementById('today-container');
+            todayContainer.appendChild(buttonNode)
+        })
+        .catch(error => {
+            console.error(error);
+        });
+
     let startOfDay = new Date();
     startOfDay = startOfDay.setHours(0, 0, 0, 0);
     let endOfDay = new Date();
     endOfDay = endOfDay.setHours(23, 59, 59, 999);
-
 
     ['desktop', 'browser'].forEach(pingType => {
         fetch(`/api/stats?from=${startOfDay}&to=${endOfDay}&type=${pingType}`)
