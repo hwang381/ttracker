@@ -43,7 +43,7 @@ class SqliteStore(object):
     ###
     def ping(self, ping: Ping):
         if self.paused():
-            logging.info(f"Paused, ignoring ping {str(ping)}")
+            logging.debug(f"Paused, ignoring ping {str(ping)}")
             return
         ping_queue = self._get_ping_queue_or_raise(ping.ping_type)
         ping_queue.append(ping)
@@ -110,13 +110,13 @@ class SqliteStore(object):
         # merge the first time entry if necessary
         last_time_entry = self._get_last_time_entry(ping_type)
         if last_time_entry and last_time_entry.to_timestamp + NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS > time_entries[0].from_timestamp:
-            logging.info(f"[{ping_type}] Merging the first time entry to {time_entries[0].to_timestamp}")
+            logging.debug(f"[{ping_type}] Merging the first time entry to {time_entries[0].to_timestamp}")
             self._update_last_time_entry(time_entries[0].to_timestamp, ping_type)
             del time_entries[0]
 
         # persist the rest of time entries
         for time_entry in time_entries:
-            logging.info(f"[{ping_type}] Persisting time entry {time_entry}")
+            logging.debug(f"[{ping_type}] Persisting time entry {time_entry}")
             self._append_time_entry(time_entry, ping_type)
 
         self._reset_ping_queue_or_raise(ping_type)

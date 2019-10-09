@@ -14,7 +14,7 @@ from utils.sanctioned_ping_types import SANCTIONED_PING_TYPES
 # Setup logging
 ###
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='[%(filename)s][%(levelname)s] %(message)s'
 )
 # less verbose logging from requests
