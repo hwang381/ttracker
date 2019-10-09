@@ -30,6 +30,7 @@ NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS = 5 * 1000
 class SqliteStore(object):
     def __init__(self, db_path: str):
         self.pings = {}  # type: Dict[str, List[Ping]]
+        self._paused = False
 
         self.db_path = db_path
         self._schema_migrations = {
@@ -41,10 +42,19 @@ class SqliteStore(object):
     # Write API
     ###
     def ping(self, ping: Ping):
+        if self.paused():
+            logging.info(f"Paused, ignoring ping {str(ping)}")
+            return
         ping_queue = self._get_ping_queue_or_raise(ping.ping_type)
         ping_queue.append(ping)
         if len(ping_queue) >= PING_FLUSH_THRESHOLD_SECONDS:
             self._flush_pings(ping.ping_type, now_milliseconds())
+
+    def pause(self):
+        self._paused = True
+
+    def unpause(self):
+        self._paused = False
 
     ###
     # Read API
@@ -66,6 +76,9 @@ class SqliteStore(object):
                     to_timestamp=result[2],
                 ))
             return results
+
+    def paused(self) -> bool:
+        return self._paused
 
     ###
     # Logic methods

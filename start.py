@@ -131,4 +131,24 @@ def api_desktop_ping():
     return 'desktop ping successful'
 
 
+@flask_app.route('/api/pause', methods=['POST'])
+def api_pause():
+    store.pause()
+    return 'paused'
+
+
+@flask_app.route('/api/unpause', methods=['POST'])
+def api_unpause():
+    store.unpause()
+    return 'unpaused'
+
+
+@flask_app.route('/api/paused', methods=['GET'])
+def api_paused():
+    if store.paused():
+        return jsonify({'paused': True})
+    else:
+        return jsonify({'paused': False})
+
+
 flask_app.run(host='localhost', port=16789)
