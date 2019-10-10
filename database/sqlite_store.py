@@ -24,7 +24,7 @@ def sqlite_execute(conn, q, params=()):
 PING_FLUSH_THRESHOLD_SECONDS = 5
 assert PING_FLUSH_THRESHOLD_SECONDS > 0
 
-NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS = 5 * 1000
+NEW_ENTRY_THRESHOLD_MS = 5 * 1000
 
 
 class SqliteStore(object):
@@ -48,7 +48,7 @@ class SqliteStore(object):
         ping_queue = self._get_ping_queue_or_raise(ping.ping_type)
         ping_queue.append(ping)
         if len(ping_queue) >= PING_FLUSH_THRESHOLD_SECONDS:
-            self._flush_pings(ping.ping_type, now_milliseconds())
+            self._flush_pings(ping.ping_type)
 
     def pause(self):
         self._paused = True
@@ -83,7 +83,7 @@ class SqliteStore(object):
     ###
     # Logic methods
     ###
-    def _flush_pings(self, ping_type: str, flush_at_milliseconds: int):
+    def _flush_pings(self, ping_type: str):
         ping_queue = self._get_ping_queue_or_raise(ping_type)
         time_entries = []  # type: List[TimeEntry]
 
@@ -91,25 +91,20 @@ class SqliteStore(object):
         for ping in ping_queue:
             if not time_entries \
                     or time_entries[-1].entry_type != ping.ping_type \
-                    or time_entries[-1].origin != ping.origin:
-                if time_entries:
-                    # end the previous time entry properly
-                    time_entries[-1].to_timestamp = ping.timestamp
+                    or time_entries[-1].origin != ping.origin \
+                    or time_entries[-1].to_timestamp + NEW_ENTRY_THRESHOLD_MS < ping.timestamp:
                 time_entries.append(TimeEntry(
                     from_timestamp=ping.timestamp,
                     entry_type=ping.ping_type,
                     origin=ping.origin,
-                    to_timestamp=-1
+                    to_timestamp=ping.timestamp
                 ))
             else:
                 time_entries[-1].to_timestamp = ping.timestamp
 
-        # end the last time entry properly
-        time_entries[-1].to_timestamp = ping_queue[-1].timestamp
-
         # merge the first time entry if necessary
         last_time_entry = self._get_last_time_entry(ping_type)
-        if last_time_entry and last_time_entry.to_timestamp + NEW_TIME_ENTRY_THRESHOLD_MILLISECONDS > time_entries[0].from_timestamp:
+        if last_time_entry and last_time_entry.to_timestamp + NEW_ENTRY_THRESHOLD_MS >= time_entries[0].from_timestamp:
             logging.debug(f"[{ping_type}] Merging the first time entry to {time_entries[0].to_timestamp}")
             self._update_last_time_entry(time_entries[0].to_timestamp, ping_type)
             del time_entries[0]
