@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from database.sqlite_store import SqliteStore
 from database.ping import Ping
-from desktop.tell_os import is_linux, is_macos
+from desktop.tell_os import is_linux, is_macos, is_win
 from utils.time import now_milliseconds
 from utils.sanctioned_ping_types import SANCTIONED_PING_TYPES
 
@@ -45,6 +45,9 @@ def start_desktop_monitor():
     elif is_macos():
         from desktop.macos import MacOSDesktopMonitor
         desktop_monitor_constructor = MacOSDesktopMonitor
+    elif is_win():
+        from desktop.win import WindowsDesktopMonitor
+        desktop_monitor_constructor = WindowsDesktopMonitor
     else:
         raise RuntimeError("Unsupported OS")
     desktop_monitor = desktop_monitor_constructor()
@@ -52,12 +55,8 @@ def start_desktop_monitor():
 
 
 desktop_monitor_p = multiprocessing.Process(target=start_desktop_monitor)
-desktop_monitor_p.start()
 
 
-###
-# Start webapp
-##
 flask_app = Flask(__name__)
 CORS(flask_app)
 
@@ -157,4 +156,6 @@ def api_paused():
         return jsonify({'paused': False})
 
 
-flask_app.run(host='localhost', port=16789)
+if __name__ == '__main__':
+    desktop_monitor_p.start()
+    flask_app.run(host='localhost', port=16789)

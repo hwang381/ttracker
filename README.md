@@ -21,12 +21,27 @@ source venv/bin/activate
 pip install -r requirements.txt -r requirements_macos.txt
 ```
 
-#### Start
+#### Prepare on Windows (assume using Powershell and [`Set-ExecutionPolicy`](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-6) is set to `Unrestricted`)
+```powershell
+python3 -m virtualenv venv
+.\venv\Scripts\activate.ps1
+pip install -r requirements.txt -r requirements_win.txt
+```
+
+#### Start on Linux or macOS
 ```bash
 source venv/bin/activate
 python start.py
-# optionally, use "LOGGING=debug python start.py" to get more verbose logging
+# optionally, use `LOGGING=debug python start.py` to get more verbose logging
 ```
+
+#### Start on Windows
+```powershell
+.\venv\Scripts\activate.ps1
+# optionally, use `$env:LOGGING = "debug"` to get more verbose logging
+python start.py
+```
+
 Visit [localhost:16789](http://localhost:16789) to view the web interface
 
 ## (Recommended) More precise time tracking within browsers
