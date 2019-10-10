@@ -25,6 +25,7 @@ pip install -r requirements.txt -r requirements_macos.txt
 ```bash
 source venv/bin/activate
 python start.py
+# optionally, use "LOGGING=debug python start.py" to get more verbose logging
 ```
 Visit [localhost:16789](http://localhost:16789) to view the web interface
 
