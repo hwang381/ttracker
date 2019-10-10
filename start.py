@@ -1,5 +1,6 @@
 import multiprocessing
 import logging
+import os
 from typing import Dict
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -13,8 +14,13 @@ from utils.sanctioned_ping_types import SANCTIONED_PING_TYPES
 ###
 # Setup logging
 ###
+logging_level = logging.INFO
+if 'LOGGING' in os.environ:
+    logging_env = os.environ['LOGGING']
+    if logging_env == 'debug':
+        logging_level = logging.DEBUG
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging_level,
     format='[%(filename)s][%(levelname)s] %(message)s'
 )
 # less verbose logging from requests
