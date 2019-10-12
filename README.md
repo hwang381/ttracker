@@ -1,4 +1,4 @@
-# ttracker
+# [DEPRECATED] ttracker
 An automatically triggered time-tracker for all major desktop OS'es and browsers
 
 ## Run and develop from source
